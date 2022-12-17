@@ -6,17 +6,17 @@ if [[ $(/usr/bin/id -u) -ne 0 ]]; then
 fi
 
 unsatisfied=()
-if [[ "/usr/bin/python3" -f ]]; then
+if [[ -f /usr/bin/python3 ]]; then
     echo "Found Python3"
 else
     unsatisfied+=(python3)
 fi
-if [[ "/usr/bin/pip3" -f ]]; then
+if [[ -f /usr/bin/pip3 ]]; then
     echo "Found python3-pip"
 else   
     unsatisfied+=(python3-pip)
 fi
-if [[ "/usr/bin/dnsmasq" -f ]]; then
+if [[ -f /usr/bin/dnsmasq ]]; then
     echo "Found dnsmasq"
 else
     unsatisfied+=(dnsmasq)
@@ -27,21 +27,21 @@ if (( ${#unsatisfied[*]} == 0 )); then
 else    
     echo "The following dependencies are not present: ${unsatisfied[*]}"
     echo "Attempting to install them"
-    if [[ "/usr/bin/apt" -f ]]; then
+    if [[ -f /usr/bin/apt ]]; then
         echo "Installing with apt"
-        exec apt install ${unsatisfied[*]} &> /dev/null
+        apt --yes install ${unsatisfied[*]} &> /dev/null
         flag=$?
-    elif [[ "/usr/bin/yum" -f ]]; then
+    elif [[ -f /usr/bin/yum ]]; then
         echo "Installing with yum"
-        exec yum install ${unsatisfied[*]} &> /dev/null
+        yum --assumeyes install ${unsatisfied[*]} &> /dev/null
         flag=$?
-    elif [[ "/usr/bin/dnf" -f ]]; then
+    elif [[ -f /usr/bin/dnf ]]; then
         echo "Installing with dnf"
-        exec dnf install ${unsatisfied[*]} &> /dev/null
+        dnf --assumeyes install ${unsatisfied[*]} &> /dev/null
         flag=$?
-    elif [[ "/usr/bin/pacman" -f ]]; then
+    elif [[ -f /usr/bin/pacman ]]; then
         echo "Installing with pacman"
-        exec pacman -S ${unsatisfied[*]} &> /dev/null
+        pacman -S --noconfirm ${unsatisfied[*]} &> /dev/null
         flag=$?
     else
         echo "Ok I don't know what package manager you are using..."
@@ -56,7 +56,7 @@ else
 fi
 
 echo "Installing required python dependencies..."
-exec pip3 install -r requirements.txt &> /dev/null
+pip3 install -r requirements.txt &> /dev/null
 if [ $? -eq 0 ]; then
     echo "Python modules successfully installed"
 else
@@ -69,15 +69,15 @@ if [ $? -eq 0 ]; then
     echo "The script is now modifing /etc/dnsmasq.conf"
     if [ "/etc/dnsmasq.conf" -f ]; then
         echo "The old file can be found at /etc/dnsmasq.conf.bckup"
-        exec cp /etc/dnsmasq.conf /etc/dnsmasq.conf.bckup
+        cp /etc/dnsmasq.conf /etc/dnsmasq.conf.bckup
     fi
-    exec mv ./dnsmasq.conf /etc/dnsmasq.conf
+    mv ./dnsmasq.conf /etc/dnsmasq.conf
 else    
     echo "Well something went wrong... It shoulda worked..."
     exit
 fi
 
-exec systemctl start dnsmasq.service
+systemctl start dnsmasq.service
 if (( $? == 0 )); then
     echo "DNS Server successfully started"
 else
