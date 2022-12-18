@@ -25,5 +25,5 @@ if __name__ == "__main__":
     for domain in domains:
         fileWriter.write("address=/{}/{}\n".format(domain,thisIP))
     for nameserver in nameservers:
-        fileWriter.write("nameserver={}\n".format(nameserver))
+        fileWriter.write("server={}\n".format(nameserver))
     fileWriter.close()

@@ -63,7 +63,7 @@ else
     echo "Something was wrong in python modules... Try installing manually"
 fi
 
-exec python3 ProxyDNSConfigCreator.py 
+python3 ProxyDNSConfigCreator.py 
 
 if [ $? -eq 0 ]; then
     echo "The script is now modifing /etc/dnsmasq.conf"
