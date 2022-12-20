@@ -67,7 +67,7 @@ python3 ProxyDNSConfigCreator.py
 
 if [ $? -eq 0 ]; then
     echo "The script is now modifing /etc/dnsmasq.conf"
-    if [ "/etc/dnsmasq.conf" -f ]; then
+    if [ -f "/etc/dnsmasq.conf" ]; then
         echo "The old file can be found at /etc/dnsmasq.conf.bckup"
         cp /etc/dnsmasq.conf /etc/dnsmasq.conf.bckup
     fi
