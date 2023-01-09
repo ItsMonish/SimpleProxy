@@ -10,7 +10,7 @@ import requests
 
 # Impelementations of OpenSSL to create the Fake Certificate Authority
 from OpenSSL.SSL import FILETYPE_PEM
-from OpenSSL.crypto import (X509,X509Extension,X509Req,dump_privatekey,dump_certificate,load_certificate,load_privatekey,PKey,TYPE_RSA)
+from OpenSSL.crypto import (X509,X509Extension,X509Req,dump_privatekey,dump_certificate,load_certificate,PKey,TYPE_RSA)
 
 # Provides functionality to the proxy from various endpoints
 from twisted.internet import protocol,reactor
@@ -77,7 +77,6 @@ class FakeCA(object):
     # using the root CA TLS certificate
 
     CertificatePrefix = "fake-cert"
-
     def __init__(self, CAFile, CacheDir = tempfile.mkdtemp()) -> None:
         Log.info("[INFO - CA]: CA initialized with CAFile: {} and CacheDir: {}".format(CAFile,CacheDir))
         self.CAFile = CAFile
@@ -102,24 +101,19 @@ class FakeCA(object):
 
             # To Generate Certificate Signing Request a.k.a CSR
             ReqObject = X509Req()
-            ReqObject.get_subject().CN = getIP()
+            ReqObject.get_subject().CN = CommonName
             ReqObject.set_pubkey(newKey)
-            ReqObject.sign(newKey,'sha512')
+            ReqObject.sign(newKey,'sha256')
 
             # Signing CSR
             CertificateObj = X509()
-            CertificateObj.get_subject().C = "IN"
-            CertificateObj.get_subject().ST = "TamilNadu"
-            CertificateObj.get_subject().L = "Chennai"
-            CertificateObj.get_subject().O = "Simple Proxy Certificate Authority"
-            CertificateObj.get_subject().OU = "Simple Proxy Certificate Authority"
-            CertificateObj.get_subject().CN = getIP()
+            CertificateObj.set_subject(ReqObject.get_subject())
             CertificateObj.set_serial_number(1856)
             CertificateObj.gmtime_adj_notBefore(0)
             CertificateObj.gmtime_adj_notAfter(31536000)
-            CertificateObj.set_issuer(CertificateObj.get_subject())
+            CertificateObj.set_issuer(self.cert.get_subject())
             CertificateObj.set_pubkey(ReqObject.get_pubkey())
-            CertificateObj.sign(newKey,'sha512')
+            CertificateObj.sign(newKey,'sha256')
 
             # Dumping generated keys in the file system
             with open(CommonNamePath,"wb+") as fileWriter:
@@ -148,7 +142,15 @@ class FakeCA(object):
 
         # Generate Certificate
         cert = X509()
-        cert.set_version(3)
+        cert.set_version(2)
+        cert.add_extensions([X509Extension(b'basicConstraints',True,b'CA:TRUE, pathlen:0'),
+                             X509Extension(b'keyUsage',True,b'keyCertSign, cRLSign'),
+                             X509Extension(b'subjectKeyIdentifier',False,b'hash',subject=cert)])
+        cert.get_subject().C = "IN"
+        cert.get_subject().ST = "TamilNadu"
+        cert.get_subject().L = "Chennai"
+        cert.get_subject().O = "Simple Proxy Trust Certificate Authority"
+        cert.get_subject().OU = "Simple Proxy Trust Certificate Authority"
         cert.set_serial_number(1)
         cert.get_subject().CN = fileCommonName
         cert.gmtime_adj_notBefore(0)
@@ -171,11 +173,11 @@ def getIP() -> str:
 
 if __name__ == "__main__":
     Log.basicConfig(level=Log.INFO,filename="HTTPSProxyServer.log",filemode="a",format="%(asctime)s: %(message)s")
-    CA_CERTIFICATE_PATH = "./ca-cert.pem"
+    CA_CERTIFICATE_PATH = "./ca.crt"
     LISTEN_PORT = 443
     DST_PORT = 443
-    DST_HOST = ""
-    LocalIP = getLocalIP("wlo1")
+    DST_HOST = "youtube.com"
+    LocalIP = getLocalIP("eth0")
     Log.info("[INFO]: Querying DNS for host {}".format(DST_HOST))
     DNSResolver = dns.resolver.Resolver()
     DNSResolver.nameservers = ['1.1.1.1','8.8.8.8']
@@ -189,6 +191,24 @@ if __name__ == "__main__":
     CA = FakeCA(CA_CERTIFICATE_PATH)
     CertificateFile = CA.getCertificatePath(DST_HOST)
     with open(CertificateFile) as fileIn:
+        cert = TwistedSSL.PrivateCertificate.loadPEM(fileIn.read())
+    print(cert)
+    # if not os.path.exists(CA_CERTIFICATE_PATH):
+    #     os.system('openssl genrsa -out ca_private.key')
+    #     os.system('openssl req -x509 -new -sha256 -nodes -key ca_private.key -days 3650 -addext basicConstraints=critical,CA:TRUE,pathlen:1 -out ca_public.crt -subj \"/C=IN/ST=TN/L=TamilNadu/O=Simple Proxy/CN=Simple Proxy\"')
+    #     os.system('cat ca_private.key > ca.crt')
+    #     os.system('cat ca_public.crt >> ca.crt')
+    # if not os.path.exists('./certs/'):
+    #     os.mkdir('certs')
+    # os.system('openssl genrsa -out ./certs/{}.key 2048'.format(DST_HOST+'_private'))
+    # os.system('openssl req -new -key ./certs/{}.key -out ./certs/{}.csr -nodes -addext basicConstraints=critical,CA:FALSE,pathlen:1 -addext keyUsage=digitalSignature,keyEncipherment,dataEncipherment -subj \"/C=IN/ST=TN/L=TamilNadu/O=Simple Proxy/CN={}\"'   \
+    #             .format(DST_HOST+'_private',DST_HOST+'_public',DST_HOST))
+    # os.system('openssl x509 -req -sha256 -in ./certs/{}.csr -CA ca_public.crt -CAkey ca_private.key     \
+    #             -CAcreateserial -out ./certs/{}.crt -days 365'.                                         \
+    #             format(DST_HOST+'_public',DST_HOST))
+    # os.system('cat ./certs/{}.key > ./certs/{}.pem'.format(DST_HOST+'_private',DST_HOST))
+    # os.system('cat ./certs/{}.crt >> ./certs/{}.pem'.format(DST_HOST,DST_HOST))
+    with open('./certs/{}.pem'.format(DST_HOST)) as fileIn:
         cert = TwistedSSL.PrivateCertificate.loadPEM(fileIn.read())
     factory = protocol.ServerFactory()
     factory.protocol = TLSProxyProtocol
